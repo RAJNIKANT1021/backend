@@ -1,6 +1,7 @@
 package com.example.demo.controller;
+
+import com.example.demo.dto.ApiResponse;
 import com.example.demo.service.UserService;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,24 +11,25 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class UserController {
-    private final UserService userservice;
-    public UserController(UserService userService){
-        this.userservice=userService;
+
+    private final UserService userService;
+    public UserController(UserService userService) {
+        this.userService = userService;
     }
 
-    // 🔐 Protected GET API
+    // 🔐 Protected API
     @GetMapping("/profile")
-    public ResponseEntity<?> getProfile(Authentication authentication) {
+    public ResponseEntity<ApiResponse<Object>> getProfile(
+            Authentication authentication
+    ) {
+        // authentication.getName() = email (from JwtFilter)
+        String email = authentication.getName();
 
-        // ✅ Defensive check (prevents 500 error)
-        if (authentication == null) {
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
-                    .body("Unauthorized");
-        }
-
-        // authentication.getName() = email (set in JwtFilter)
-        String Email=authentication.getName();
-      return ResponseEntity.ok(userservice.getUserProfileByEmail(Email));
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Profile fetched successfully",
+                        userService.getUserProfileByEmail(email)
+                )
+        );
     }
 }

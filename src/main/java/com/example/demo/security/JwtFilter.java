@@ -1,14 +1,12 @@
 package com.example.demo.security;
 
 import com.example.demo.repository.UserRepository;
-
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -31,38 +29,41 @@ public class JwtFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // ✅ 1. Allow public auth endpoints
-        if (request.getServletPath().startsWith("/auth/")) {
+        // 🔥🔥🔥 VERY IMPORTANT: allow auth endpoints
+        String path = request.getServletPath();
+        if (path.startsWith("/auth/")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // ✅ 2. Read Authorization header
-        String authHeader = request.getHeader("Authorization");
+        // 🔐 Extract JWT from cookie
+        String token = null;
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("JWT_TOKEN".equals(cookie.getName())) {
+                    token = cookie.getValue();
+                    break;
+                }
+            }
+        }
 
-        // ❌ 3. Block request if token missing or invalid format
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        // ❌ No token → block
+        if (token == null) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
         try {
-            // ✅ 4. Extract token
-            String token = authHeader.substring(7);
-
-            // ✅ 5. Extract email from JWT
             String email = jwtUtil.extractEmail(token);
 
-            // ✅ 6. Authenticate only once per request
             if (email != null &&
                     SecurityContextHolder.getContext().getAuthentication() == null) {
 
+                String finalToken = token;
                 userRepository.findByEmail(email).ifPresent(user -> {
 
-                    // ✅ 7. Validate token
-                    if (jwtUtil.validateToken(token, user.getEmail())) {
+                    if (jwtUtil.validateToken(finalToken, user.getEmail())) {
 
-                        // ✅ 8. Create Authentication object
                         UsernamePasswordAuthenticationToken authentication =
                                 new UsernamePasswordAuthenticationToken(
                                         user.getEmail(),
@@ -70,20 +71,17 @@ public class JwtFilter extends OncePerRequestFilter {
                                         List.of(() -> "ROLE_USER")
                                 );
 
-                        // ✅ 9. Set authentication in context
                         SecurityContextHolder.getContext()
                                 .setAuthentication(authentication);
                     }
                 });
             }
 
-        } catch (Exception ex) {
-            // ❌ Invalid / expired / tampered token
+        } catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
-        // ✅ 10. Continue filter chain
         filterChain.doFilter(request, response);
     }
 }
