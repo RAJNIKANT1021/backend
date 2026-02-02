@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+@CrossOrigin
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
@@ -77,7 +78,7 @@ public class AuthController {
 
         // IMPORTANT: must match login cookie
         cookie.setHttpOnly(true);
-        cookie.setSecure(false); // true in prod
+        cookie.setSecure(true); // true in prod
         cookie.setPath("/");
 
         // MaxAge = 0 → delete cookie

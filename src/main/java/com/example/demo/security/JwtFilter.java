@@ -29,15 +29,22 @@ public class JwtFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // 🔥🔥🔥 VERY IMPORTANT: allow auth endpoints
+        // 🔴 ALLOW CORS PREFLIGHT
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String path = request.getServletPath();
+
+        // 🔴 ALLOW AUTH ENDPOINTS
         if (path.startsWith("/auth/")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 🔐 Extract JWT from cookie
         String token = null;
+
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
                 if ("JWT_TOKEN".equals(cookie.getName())) {
@@ -47,39 +54,30 @@ public class JwtFilter extends OncePerRequestFilter {
             }
         }
 
-        // ❌ No token → block
-        if (token == null) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return;
-        }
+        if (token != null) {
+            try {
+                String email = jwtUtil.extractEmail(token);
 
-        try {
-            String email = jwtUtil.extractEmail(token);
+                if (email != null &&
+                        SecurityContextHolder.getContext().getAuthentication() == null) {
 
-            if (email != null &&
-                    SecurityContextHolder.getContext().getAuthentication() == null) {
-
-                String finalToken = token;
-                userRepository.findByEmail(email).ifPresent(user -> {
-
-                    if (jwtUtil.validateToken(finalToken, user.getEmail())) {
-
-                        UsernamePasswordAuthenticationToken authentication =
-                                new UsernamePasswordAuthenticationToken(
-                                        user.getEmail(),
-                                        null,
-                                        List.of(() -> "ROLE_USER")
-                                );
-
-                        SecurityContextHolder.getContext()
-                                .setAuthentication(authentication);
-                    }
-                });
+                    String finalToken = token;
+                    userRepository.findByEmail(email).ifPresent(user -> {
+                        if (jwtUtil.validateToken(finalToken, user.getEmail())) {
+                            UsernamePasswordAuthenticationToken auth =
+                                    new UsernamePasswordAuthenticationToken(
+                                            user.getEmail(),
+                                            null,
+                                            List.of(() -> "ROLE_USER")
+                                    );
+                            SecurityContextHolder.getContext()
+                                    .setAuthentication(auth);
+                        }
+                    });
+                }
+            } catch (Exception ignored) {
+                // ❌ DO NOT BLOCK — let security handle it
             }
-
-        } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return;
         }
 
         filterChain.doFilter(request, response);
