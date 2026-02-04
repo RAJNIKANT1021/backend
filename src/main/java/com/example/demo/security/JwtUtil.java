@@ -28,8 +28,11 @@ public class JwtUtil {
 
     // ✅ Generate token
     public String generateToken(String email) {
+        String normalizedEmail =
+                email == null ? null : email.trim().toLowerCase();
+
         return Jwts.builder()
-                .setSubject(email)
+                .setSubject(normalizedEmail)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -38,7 +41,7 @@ public class JwtUtil {
 
     // ✅ Extract email
     public String extractEmail(String token) {
-        return parseClaims(token).getSubject();
+        return parseClaims(token).getSubject().trim().toLowerCase();
     }
 
     // ✅ Validate token

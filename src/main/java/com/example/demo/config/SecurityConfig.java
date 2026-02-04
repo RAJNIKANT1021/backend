@@ -23,6 +23,7 @@ public class SecurityConfig {
                 // 🔥 MUST disable CSRF for POST login
                 .csrf(csrf -> csrf.disable())
 
+
                 // 🔥 MUST disable default auth mechanisms
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
